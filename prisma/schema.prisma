@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  username  String    @unique @db.VarChar(50)
+  password  String    @db.VarChar(255)
+  role      Role
+  createdAt DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model report_comments {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_id  String   @db.Uuid
+  user_id    String   @db.Uuid
+  text       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  reports    reports  @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model report_likes {
+  report_id String  @db.Uuid
+  user_id   String  @db.Uuid
+  reports   reports @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users     users   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([report_id, user_id])
+}
+
+model report_media {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_id String  @db.Uuid
+  kind      String
+  url       String
+  mime_type String?
+  reports   reports @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model reports {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String            @db.Uuid
+  description     String?
+  lat             Float
+  lng             Float
+  timestamp       DateTime          @db.Timestamptz(6)
+  ai_type         String?           @default("unknown")
+  ai_severity     String?           @default("low")
+  privacy         String            @default("public")
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  report_comments report_comments[]
+  report_likes    report_likes[]
+  report_media    report_media[]
+  users           users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([lat, lng], map: "idx_reports_geo")
+  @@index([privacy, timestamp(sort: Desc)], map: "idx_reports_privacy_time")
+}
+
+model users {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  email           String            @unique
+  password_hash   String
+  role            String            @default("citizen")
+  locale          String            @default("en")
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  report_comments report_comments[]
+  report_likes    report_likes[]
+  reports         reports[]
+}
+
+model hazard_reports {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  description String?
+  lat         Float
+  lng         Float
+  timestamp   DateTime @db.Timestamptz(6)
+  ai_type     String?  @default("unknown")
+  ai_severity String?  @default("low")
+  privacy     String   @default("public")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model emergencies {
+  id           Int       @id @default(autoincrement())
+  name         String
+  safe_lat     Float?
+  safe_lon     Float?
+  instructions String?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  expires_at   DateTime? @db.Timestamp(6)
+}
+
+model ml_model_outputs {
+  id            Int      @id @default(autoincrement())
+  anomaly_id    Int?
+  calamity_type String   @db.VarChar(50)
+  confidence    Decimal? @db.Decimal(3, 2)
+  predicted_at  DateTime @default(now()) @db.Timestamp(6)
+  details       Json?
+}
+
+model incois_predictions {
+  id                  Int      @id @default(autoincrement())
+  location            String
+  prediction_type     String
+  wave_height_m       Decimal? @db.Decimal(4, 2)
+  current_speed_knots Decimal? @db.Decimal(4, 2)
+  valid_from          DateTime @db.Timestamp(6)
+  valid_to            DateTime @db.Timestamp(6)
+  issued_at           DateTime @db.Timestamp(6)
+}
+
+model analystreports {
+  id           Int       @id @default(autoincrement())
+  disastertype String
+  safelat      Float?
+  safelng      Float?
+  instructions String?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+}
+
+enum Role {
+  admin
+  analyst
+}
